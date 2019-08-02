@@ -1,13 +1,12 @@
 package edu.missouri.geom;
 
-import edu.missouri.frame.Input;
-
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("unused")
-public class Polygon {
+public class
+Polygon {
 
     private Point[] points;
 
@@ -53,6 +52,19 @@ public class Polygon {
 
     public Point[] toPoints() {
         return points.clone();
+    }
+
+    public Line longestLine(){
+        Line line = null;
+        Double longest = 0.0;
+        Line[] lines = toLines();
+        for(int i = 0; i < points.length; i++) {
+            if(lines[i].length() > longest){//calculate length
+                line = lines[i];
+                longest = line.length();
+            }
+        }
+        return line;
     }
     public Line[] toLines() {
         Line[] result = new Line[points.length];
@@ -413,34 +425,62 @@ public class Polygon {
     }
 
 
+//    public Line widthLine() {
+//        int n = points.length;
+//        double min = Double.POSITIVE_INFINITY;
+//        Line best = null;
+//
+//        if(isConcave()) best = concaveWidthLine();
+//        // We still have to try the lines even if it's concave
+//        for(Line l: toLines()) {
+//
+//            // A suitable line only intersects with the two lines next to it
+//            if(intersections(new Line(l, Line.INFINITE)).length > 2) continue;
+//
+//            Point p = farthest(l);
+//            if(p == null) {
+//
+//                System.err.println("Could not find a point closest to " + l);
+//                System.err.println("  There are " + numSides() + " points in this polygon.");
+//                System.err.println("  It is " + (isProper()? "":"not ") + "a proper polygon.");
+//                System.err.println(this);
+//                continue;
+//            }
+//            Line subBest = Line.perpendicularTo(l, p);
+//            if(subBest.length() < min){
+//                best = subBest;
+//                min = subBest.length();//FAREST LINE?
+//            }
+//        }
+//
+//        if(best == null) {
+//            throw new IllegalArgumentException("Could not find the width of the polygon " + toString());
+//        }
+//
+//        return best;
+//    }
+
     public Line widthLine() {
         int n = points.length;
-        double min = Double.POSITIVE_INFINITY;
+        double max = 0.0;
         Line best = null;
-
+        Line longsetSide = longestLine();
         if(isConcave()) best = concaveWidthLine();
 
         // We still have to try the lines even if it's concave
-        for(Line l: toLines()) {
 
-            // A suitable line only intersects with the two lines next to it
-            if(intersections(new Line(l, Line.INFINITE)).length > 2) continue;
+        // A suitable line only intersects with the two lines next to it
 
-            Point p = farthest(l);
-            if(p == null) {
+        Point p = farthest(longsetSide);
+        if(p == null) {
 
-                System.err.println("Could not find a point closest to " + l);
-                System.err.println("  There are " + numSides() + " points in this polygon.");
-                System.err.println("  It is " + (isProper()? "":"not ") + "a proper polygon.");
-                System.err.println(this);
-                continue;
-            }
-            Line subBest = Line.perpendicularTo(l, p);
-            if(subBest.length() < min){
-                best = subBest;
-                min = subBest.length();
-            }
+            System.err.println("Could not find a point closest to " + longsetSide);
+            System.err.println("  There are " + numSides() + " points in this polygon.");
+            System.err.println("  It is " + (isProper()? "":"not ") + "a proper polygon.");
+            System.err.println(this);
         }
+
+        best = Line.perpendicularTo(longsetSide, p);
 
         if(best == null) {
             throw new IllegalArgumentException("Could not find the width of the polygon " + toString());
@@ -448,7 +488,6 @@ public class Polygon {
 
         return best;
     }
-
     private Line concaveWidthLine() {
         Line best = null;
         for(Point a: points) {
