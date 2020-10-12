@@ -53,6 +53,14 @@ public class Point {
 
     public int dim() { return coordinates.length; }
 
+    public boolean same(Point other){
+        if(x()==other.x() && y() == other.y()){
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 
     public double distance(Point other) { return Math.sqrt(sqDistance(other)); }
     public double distance(Line l) {

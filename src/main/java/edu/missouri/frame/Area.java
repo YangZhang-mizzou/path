@@ -3,6 +3,8 @@ package edu.missouri.frame;
 import edu.missouri.geom.Line;
 import edu.missouri.geom.Point;
 import edu.missouri.geom.Polygon;
+import edu.missouri.frame.Option;
+import edu.missouri.frame.Option;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -15,6 +17,8 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import edu.missouri.frame.GPStoCord;
 
 public class Area {
 
@@ -38,6 +42,7 @@ public class Area {
         poly = new Polygon(points);
         objects = new ArrayList<>(genBirds(Option.numObjects, Option.distributor));
     }
+
     public Area(int n) {
         double[] angles = new double[n];
         double sum = 0.0;
@@ -67,6 +72,41 @@ public class Area {
         poly = new Polygon(points);
         objects = new ArrayList<>(genBirds(Option.numObjects, Option.distributor));
     }
+
+//    public Area(int n) {
+//        double[] angles = new double[n];
+//        double sum = 0.0;
+//        double mean = 0.5;
+//        double var = 1;
+//        for (int i = 0; i < angles.length; i++) {
+//            angles[i] = Math.random() + 3.0;
+//            sum += angles[i];
+//        }
+//        for(int i = 0; i < angles.length; i++) angles[i] = angles[i]*Math.PI*2/sum;
+//
+//        Point[] points = new Point[n];
+//
+//        double angle = 0;
+//        for(int i = 0; i < angles.length; i++) {
+//            angle += angles[i];
+//            Random r = new Random();
+//            double randomNum = Math.sqrt(var)* r.nextGaussian() + mean;
+//            points[i] = new Point(
+//                    (600 * randomNum + 200) * Math.cos(-angle),
+//                    (600 * randomNum + 200) * Math.sin(-angle)
+//            );
+//        }
+//
+//        poly = new Polygon(points);
+//
+//        double dx = poly.leftmost().x();
+//        double dy = poly.upmost().y();
+//        for (int i = 0; i < points.length; i++) points[i] = new Point(points[i].x() - dx, points[i].y() - dy);
+//
+//        poly = new Polygon(points);
+//        objects = new ArrayList<>(genBirds(Option.numObjects, Option.distributor));
+//    }
+
     public Area(String imageFile, double fidelity) {
         byte[][] data = null;
         try {
@@ -210,9 +250,10 @@ public class Area {
     }
 
     public Point getStart() {
-        return poly.leftmost();
+        return new Point(0,0) ;
     }
-    public Point getEnd() { return poly.rightmost(); }
+
+    public Point getEnd() { return getStart(); }
 
     public void draw(Graphics g1) {
         Graphics2D g = (Graphics2D) g1;
@@ -233,12 +274,23 @@ public class Area {
     }
 
     public static Area randomParallelogram() {
+//        Point p1 = new Point(0, 0);
+//        Point p2 = new Point(250 + Math.random() * 200, Math.random() * 300);
+//        Point p3 = new Point(Math.random() * 200, 250+Math.random() * 200);
+//        Point p4 = new Point(p3.x() + p2.x() - p1.x(), p3.y() + p2.y() - p1.y());
         Point p1 = new Point(0, 0);
-        Point p2 = new Point(250 + Math.random() * 200, Math.random() * 300);
-        Point p3 = new Point(Math.random() * 200, 250+Math.random() * 200);
-        Point p4 = new Point(p3.x() + p2.x() - p1.x(), p3.y() + p2.y() - p1.y());
+        Point p2 = new Point(250 , 0);
+        Point p3 = new Point(0, 250);
+        Point p4 = new Point(250, 250
+        );
         return new Area(p4, p2, p1, p3);
     }
+
+    public static Area readPolygonFromCSV() {
+        Point[] vertices = Option.vertices;
+        return new Area(vertices);
+    }
+
 
     private boolean isExactBorder(int x, int y, byte[][] data) {
         // only pixels with all eight neighbors are eligible

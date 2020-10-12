@@ -44,8 +44,8 @@ public class GUIMain {
 
         drones = new Drone[] {
                 new ImprovedDirectDrone(area),
-                new LayerDrone(area),
-                new BoustrophedonDrone(area)
+//                new LayerDrone(area),
+//                new BoustrophedonDrone(area)
         };
 
         drone = drones[0];

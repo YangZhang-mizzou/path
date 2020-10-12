@@ -46,23 +46,6 @@ public class Detectable extends Point {
         return new Detectable(x(), y(), h, base, truth);
     }
 
-//    private double trueConf(double h) {
-//        // A sigmoid curve bounded by 0 and d.
-//        double d = base;
-//        double k = 32 * Math.pow(d, d); // a parameter for how steep the drop off is
-//        double c = d * 150; // a parameter for where the drop off is halfway done
-//        return d / (1 + Math.pow(Math.E, (1/k)*(h-c)));
-//    }
-//
-//    private double falseConf(double h) {
-//        // A skewed Gaussian curve which lies under a sigmoid with similar parameters of the true confidence.
-//        double d = base;
-//        double m = -1.0 / (1000 * h); // a constant for how spread out across heights the false positive is
-//        double k = 32 * Math.pow(d, d); // a parameter for how steep the drop off is
-//        double c = d * 150; // a parameter for where the top of the curve is (but relative to the true positive curve)
-//        return Math.pow(Math.E, m*(h-c)*(h-c))
-//                * d / (1 + Math.pow(Math.E, (1/k)*(h-150)));
-//    }
 
     @Override
     public void render(Graphics g) {

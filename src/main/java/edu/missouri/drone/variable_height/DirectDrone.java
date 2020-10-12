@@ -67,27 +67,25 @@ public class DirectDrone extends Drone {
     }
 
     public void reroute(double energy) {
-        Option.cruiseAltitude = Option.minCruiseAltitude;
         thoroughness = 1.0;
         reroute();
-        while(energyUsed() > energy && Option.cruiseAltitude < Option.maxAltitude) {
-            Option.cruiseAltitude += 1;
-            thoroughness -= 1.0/Option.maxAltitude;
-            reroute();
-        }
+//        while(energyUsed() > energy && Option.cruiseAltitude < Option.maxAltitude) {
+//            Option.cruiseAltitude += 1;
+//            thoroughness -= 1.0/Option.maxAltitude;
+//            reroute();
+//        }
     }
 
     public void reroute(Area area, double energyBudget) {
-        Option.cruiseAltitude = Option.minCruiseAltitude;
         thoroughness = 1.0;
         reroute(area);
-        double e = energyUsed();
-        while(e > energyBudget && Option.cruiseAltitude < Option.maxAltitude) {
-            Option.cruiseAltitude += 1;
-            thoroughness -= 1.0/Option.maxAltitude;
-            reroute(area);
-            e = energyUsed();
-        }
+//        double e = energyUsed();
+//        while(e > energyBudget && Option.cruiseAltitude < Option.maxAltitude) {
+//            Option.cruiseAltitude += 1;
+//            thoroughness -= 1.0/Option.maxAltitude;
+//            reroute(area);
+//            e = energyUsed();
+//        }
     }
 
     private double pathLength(List<Point> points) {

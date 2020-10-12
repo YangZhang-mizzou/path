@@ -39,9 +39,12 @@ public abstract class Drone {
     private Point location;
 
     private double heading;
-    private Area area;
+    public Area area;
     private List<Capture> captures;
-    private List<Point> route;
+    public List<Point> route;
+    public List<Point> predecideWayPoints;
+    public List<Paths> paths = new ArrayList<>();
+    public List<Turning> turnings = new ArrayList<>();
 
     public Drone(Area area) {
         route = new ArrayList<>();
@@ -60,6 +63,7 @@ public abstract class Drone {
             this.height = h;
         }
     }
+
 
     protected Polygon getPolygon() {
         return area.toPolygon();
@@ -82,8 +86,8 @@ public abstract class Drone {
 
     protected Capture scan() {
         // these are backwards for reasons
-        double h = 2 * getLocation().z() * Math.sin(FOV_WIDTH/2);
-        double w = 2 * getLocation().z() * Math.sin(FOV_HEIGHT/2);
+        double h = 2 * getLocation().z() * Math.tan(FOV_WIDTH/2);
+        double w = 2 * getLocation().z() * Math.tan(FOV_HEIGHT/2);
         Polygon p = new Polygon(
                 new Point(getLocation().x() + w/2, getLocation().y() + h/2),
                 new Point(getLocation().x() + w/2, getLocation().y() - h/2),
@@ -96,9 +100,27 @@ public abstract class Drone {
         return c;
     }
 
+    protected Capture scan(double angle) {
+        // these are backwards for reasons
+        double h = 2 * getLocation().z() * Math.tan(FOV_WIDTH/2);
+        double w = 2 * getLocation().z() * Math.tan(FOV_HEIGHT/2);
+        setHeading(angle);
+        Polygon p = new Polygon(
+                new Point(getLocation().x() + w/2, getLocation().y() + h/2),
+                new Point(getLocation().x() + w/2, getLocation().y() - h/2),
+                new Point(getLocation().x() - w/2, getLocation().y() - h/2),
+                new Point(getLocation().x() - w/2, getLocation().y() + h/2)
+        ).rotate(heading);
+        List<Detectable> detected = area.getDetectables(p, getLocation().z());
+        Capture c = new Capture(p, detected, getLocation().z());
+        captures.add(c);
+
+        return c;
+    }
+
     protected Polygon scanArea(Point p) {
-        double h = 2 * p.z() * Math.sin(FOV_WIDTH/2);
-        double w = 2 * p.z() * Math.sin(FOV_HEIGHT/2);
+        double h = 2 * p.z() * Math.tan(FOV_WIDTH/2);
+        double w = 2 * p.z() * Math.tan(FOV_HEIGHT/2);
         return new Polygon(
                 new Point(p.x() + w/2, p.y() + h/2),
                 new Point(p.x() + w/2, p.y() - h/2),
@@ -120,7 +142,9 @@ public abstract class Drone {
         this.captures = new CopyOnWriteArrayList<>();
         route();
         route.add(0, area.getStart());
+        moveTo(area.getEnd());
     }
+
     public void reroute() {
         route = new ArrayList<>();
         moveTo(area.getStart());
@@ -130,24 +154,17 @@ public abstract class Drone {
         route.add(0, area.getStart());
     }
 
-    public void reroute(double energy) {
-        Option.cruiseAltitude = Option.minCruiseAltitude;
-        reroute();
-        while(energyUsed() > energy && Option.cruiseAltitude < Option.maxAltitude) {
-            Option.cruiseAltitude += 1;
-            reroute();
-        }
-    }
+//    public void reroute(double energy) {
+//        Option.cruiseAltitude = Option.minCruiseAltitude;
+//        reroute();
+//        while(energyUsed() > energy && Option.cruiseAltitude < Option.maxAltitude) {
+//            Option.cruiseAltitude += 1;
+//            reroute();
+//        }
+//    }
 
     public void reroute(Area area, double energyBudget) {
-        Option.cruiseAltitude = Option.minCruiseAltitude;
         reroute(area);
-        double e = energyUsed();
-        while(e > energyBudget && Option.cruiseAltitude < Option.maxAltitude) {
-            Option.cruiseAltitude += 1;
-            reroute(area);
-            e = energyUsed();
-        }
     }
 
     public abstract void route();
@@ -207,7 +224,6 @@ public abstract class Drone {
             g.setColor(new Color(100, 100, 100, 100));
             g.fillPolygon(p.polygon.toAWTPolygon());
         }
-
         for(Line l: Line.arrayFromPoints(route.toArray(new Point[0]))) {
 
             Color colorA = Color.getHSBColor((float) ((l.a().iz() % Option.maxAltitude)/Option.maxAltitude), 1f, .65f);
@@ -227,7 +243,7 @@ public abstract class Drone {
 
     public static List<Point> subdivide(List<Point> points) {
         List<Point> result = new ArrayList<>();
-        for(Line l: Line.arrayFromPoints(points.toArray(new Point[0]))) result.addAll(l.toSubpoints(Option.defaultImageHeight()));
+        for(Line l: Line.arrayFromPoints(points.toArray(new Point[0]))) result.addAll(l.toSubpoints(new Option().defaultImageHeight()));
         result.add(points.get(points.size()-1));
         return result;
     }
@@ -240,20 +256,19 @@ public abstract class Drone {
     // Metrics:
 
     public double length() {
-        if(route == null || route.size() <= 3) return -1;
-        Line[] lines = Line.arrayFromPoints(route.toArray(new Point[0]));
-        double sum = 0;
-        for(Line l: lines) {
-            sum += l.length();
+        double sum = 0.0;
+        for(int i = 0; i<paths.size(); i++){
+            sum += paths.get(i).getLength();
         }
         return sum;
     }
 
     public double angularLength() {
-        if(route == null || route.size() <= 3) return -1;
-        Angle[] lines = Angle.arrayFromPoints(route.toArray(new Point[0]));
-        double sum = 0;
-        for(Angle a: lines) sum += Math.toDegrees(Math.abs(a.measure() - Math.PI));
+        double sum = 0.0;
+        for(int i = 0; i<turnings.size(); i++){
+            sum += turnings.get(i).getAngle();
+        }
+        sum = 360.0 * sum/(Math.PI*2);
         return sum;
     }
 
@@ -273,7 +288,7 @@ public abstract class Drone {
                 boolean success = false;
 
                 for(Line l: lines) {
-                    if(p.distance(l) < Option.defaultImageWidth()) {
+                    if(p.distance(l) <new Option().defaultImageWidth()) {
                         success = true;
                         break;
                     }
@@ -341,104 +356,24 @@ public abstract class Drone {
             if(h == null) continue;
             sum += (h.real())? h.confidence() : -h.confidence();
         }
-        return sum;
+        return sum/n;
     }
+
 
     // Energy calculations
     // credit to DiFranco and Buttazzo
 
     public double energyUsed() {
-        double cruiseSpeed = Option.cruiseSpeed;
-
-        Line[] lines = Line.arrayFromPoints(route.toArray(new Point[0]));
-
-        double speedIn, speedOut;
         double result = 0.0;
 
-        for(int i = 0; i < lines.length; i++) {
-            // We could probably use some linear algebra to avoid the trig functions here,
-            // but I don't trust myself to do that.
+        for(int i = 0; i<paths.size(); i++){
+            result+= paths.get(i).getTotalEnergy();
+        }
 
-            if(i == 0) speedIn = 0;
-            else {
-                Angle aIn = new Angle(lines[i-1].a(), lines[i].a(), lines[i].b());
-                speedIn = (! Util.within(Math.PI / 2, 3 * Math.PI / 2, aIn.measure())) ? 0 : Math.abs(Math.cos(aIn.measure()) * cruiseSpeed);
-            }
-
-            if(i >= lines.length-1) speedOut = 0;
-            else {
-                Angle aOut = new Angle(lines[i].a(), lines[i].b(), lines[i+1].b());
-                speedOut = (! Util.within(Math.PI / 2, 3 * Math.PI / 2, aOut.measure())) ? 0 : Math.abs(Math.cos(aOut.measure()) * cruiseSpeed);
-            }
-
-            result += legEnergy(lines[i], speedIn + 0.01, cruiseSpeed + 0.01, speedOut + 0.01);
+        for (int j = 0; j<turnings.size();j++){
+            result += turnings.get(j).getTurningEnergy();
         }
         return result;
     }
 
-    public static double legEnergy(Line path, double startSpeed, double cruiseSpeed, double endSpeed) {
-        double dist = path.length2D();
-
-        // These calculations are made for a drone with max speed 15 m/s
-        // The Mavic is quite a bit bigger so we're going to (naively) scale things up
-        startSpeed *= 15/MAX_SPEED;
-        cruiseSpeed *= 15/MAX_SPEED;
-        endSpeed *= 15/MAX_SPEED;
-
-        double borderDist = accDist(startSpeed, cruiseSpeed) + decDist(cruiseSpeed, endSpeed);
-        while(borderDist > dist && cruiseSpeed > 0) {
-            cruiseSpeed -= 0.5;
-            borderDist = accDist(startSpeed, cruiseSpeed) + decDist(cruiseSpeed, endSpeed);
-        }
-
-        // at distances around 1 meter we start having some problems
-        if(cruiseSpeed < 0) {
-//            System.err.println("Distance " + dist + " too short to calculate energy cost");
-            return EFFICIENCY_FACTOR * cruiseEnergy(dist, cruiseSpeed);
-        }
-
-        double result =  EFFICIENCY_FACTOR * accEnergy(startSpeed, cruiseSpeed)
-              + EFFICIENCY_FACTOR * decEnergy(cruiseSpeed,endSpeed)
-              + EFFICIENCY_FACTOR * cruiseEnergy(dist - borderDist, cruiseSpeed);
-
-        if(path.dz() < 0) result += 210 * path.dz() / DESCENT_SPEED * EFFICIENCY_FACTOR;
-        if(path.dz() > 0) result += 250 * path.dz() / ASCENT_SPEED  * EFFICIENCY_FACTOR;
-
-        return result;
-    }
-
-    private static double accEnergy(double vIn, double vOut) {
-        double tIn  = accTime(vIn);
-        double tOut = accTime(vOut);
-        return (Math.pow(tOut, 2.35)/2.35 + 220*tOut)
-                - (Math.pow(tIn, 2.35)/2.35 + 220*tIn);
-    }
-    private static double accTime(double v) {
-        return -4 * Math.log(16.138/(1.138+v) - 1) + 11;
-    }
-    private static double accDist(double vIn, double vOut) {
-        double tIn  = accTime(vIn);
-        double tOut = accTime(vOut);
-        return (64.552*Math.log(15.6426+Math.pow(Math.E, 0.25*tOut)) - 1.138*tOut)
-             - (64.552*Math.log(15.6426+Math.pow(Math.E, 0.25*tIn )) - 1.138*tIn);
-    }
-
-    public static double decEnergy(double vIn, double vOut) {
-        double tIn = decTime(vIn);
-        double tOut = decTime(vOut);
-        return (313.769*tOut-24.349*Math.pow(tOut, 2)+2.53967*Math.pow(tOut, 3)-0.1105*Math.pow(tOut, 4)+0.0017*Math.pow(tOut, 5))
-             - (313.769*tIn -24.349*Math.pow(tIn , 2)+2.53967*Math.pow(tIn , 3)-0.1105*Math.pow(tIn , 4)+0.0017*Math.pow(tIn , 5));
-    }
-    private static double decTime(double v) {
-        return Math.sqrt(Math.log((v + 0.1)/15.1)/-0.02);
-    }
-    private static double decDist(double vIn, double vOut) {
-        double tIn = decTime(vIn);
-        double tOut = decTime(vOut);
-        return ((-0.1*tOut)+94.6252*Erf.erf(0.141421 * tOut))-((-0.1*tIn)+94.6252*Erf.erf(0.141421*tIn));
-    }
-
-    public static double cruiseEnergy(double dist, double speed) {
-        return (Math.pow(.25*speed, 4) - 8*Math.pow(.25*speed, 2) + 220) * dist/speed;
-    }
 }
